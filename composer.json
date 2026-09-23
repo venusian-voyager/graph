@@ -2,6 +2,7 @@
     "name": "venusian-voyager/graph",
     "description": "Neo4j graph driver and Instrument models for Venusian (companion to voyager/database).",
     "license": "MIT",
+    "version": "0.9.0",
     "authors": [
         {
             "name": "Angel Gonzalez",
@@ -10,13 +11,13 @@
     ],
     "require": {
         "php": "^8.4|^8.5",
-        "voyager/contracts": "^0.8.0",
-        "voyager/database": "^0.8.0",
-        "voyager/nuts-and-bolts": "^0.8.0"
+        "venusian-voyager/contracts": "^0.9.0",
+        "venusian-voyager/database": "^0.9.0",
+        "venusian-voyager/nuts-and-bolts": "^0.9.0"
     },
     "suggest": {
         "laudis/neo4j-php-client": "Required to open Neo4j connections via Neo4jConnector (^3.3).",
-        "voyager/console": "Required to use the make:graph-model command (^0.8.0)."
+        "venusian-voyager/console": "Required to use the make:graph-model command (^0.9.0)."
     },
     "autoload": {
         "psr-4": {
@@ -28,7 +29,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-main": "0.8.x-dev"
+            "dev-main": "0.9.x-dev"
         }
     },
     "config": {

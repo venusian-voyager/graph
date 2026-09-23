@@ -42,10 +42,8 @@ class GraphServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        if ($this->app->runningInConsole()) {
-            $this->publishes([
-                __DIR__.'/config/neo4j.php' => $this->app->configPath('neo4j.php'),
-            ], 'voyager-graph-config');
-        }
+        $this->publishes([
+            __DIR__.'/config/neo4j.php' => $this->app->configPath('neo4j.php'),
+        ], 'voyager-graph-config');
     }
 }
