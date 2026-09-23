@@ -2,7 +2,6 @@
     "name": "venusian-voyager/graph",
     "description": "Neo4j graph driver and Instrument models for Venusian (companion to voyager/database).",
     "license": "MIT",
-    "version": "0.9.0",
     "authors": [
         {
             "name": "Angel Gonzalez",
