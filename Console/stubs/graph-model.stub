@@ -1,0 +1,15 @@
+<?php
+
+namespace {{ namespace }};
+
+use Voyager\Graph\Instrument\Model;
+
+class {{ class }} extends Model
+{
+    /**
+     * Neo4j label (Instrument "table").
+     *
+     * @var string
+     */
+    protected $table = '{{ label }}';
+}
