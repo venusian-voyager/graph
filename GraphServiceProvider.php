@@ -9,10 +9,9 @@ use Voyager\Graph\Database\Neo4jConnection;
 use Voyager\NutsAndBolts\ServiceProvider;
 
 /**
- * Optional companion provider — not registered in System DefaultProviders.
- *
- * Apps that need Neo4j should register this provider and add a
- * `database.connections.neo4j` entry (see config/neo4j.php).
+ * Teaches the database manager the neo4j driver. Connections come from
+ * `database.connections`; the client (laudis/neo4j-php-client) is only
+ * needed once a neo4j connection is opened.
  */
 class GraphServiceProvider extends ServiceProvider
 {
@@ -20,7 +19,7 @@ class GraphServiceProvider extends ServiceProvider
     {
         $this->app->bind('db.connector.neo4j', fn () => new Neo4jConnector);
 
-        $this->app->resolving('db', function (DatabaseManager $db) {
+        $this->callAfterResolving('db', function (DatabaseManager $db) {
             $db->extend('neo4j', function (array $config, string $name) {
                 $config['name'] = $name;
 
@@ -38,12 +37,5 @@ class GraphServiceProvider extends ServiceProvider
         $this->commands([
             GraphModelMakeCommand::class,
         ]);
-    }
-
-    public function boot(): void
-    {
-        $this->publishes([
-            __DIR__.'/config/neo4j.php' => $this->app->configPath('neo4j.php'),
-        ], 'voyager-graph-config');
     }
 }

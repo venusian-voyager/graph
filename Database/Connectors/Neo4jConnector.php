@@ -34,12 +34,10 @@ class Neo4jConnector
         $host = $config['host'] ?? 'localhost';
         $port = $config['port'] ?? 7687;
 
-        $database = null;
-        if (! empty($config['prefix'])) {
-            $database = $config['prefix'];
-        } elseif (! empty($config['database']) && $config['database'] !== 'default') {
-            $database = $config['database'];
-        }
+        // the prefix is the connection's label prefix; only database picks the database
+        $database = ! empty($config['database']) && $config['database'] !== 'default'
+            ? $config['database']
+            : null;
 
         if (! in_array($scheme, ['bolt', 'bolt+s', 'bolt+ssc', 'neo4j', 'neo4j+s', 'neo4j+ssc'], true)) {
             throw new InvalidArgumentException("Unsupported Neo4j scheme: {$scheme}");

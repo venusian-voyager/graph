@@ -4,13 +4,16 @@ namespace Voyager\Graph\Database;
 
 use Closure;
 use Exception;
+use Generator;
 use Voyager\Database\Connection;
 use Voyager\Graph\Database\Query\Grammars\Neo4jGrammar;
 use Voyager\Graph\Database\Query\Neo4jQueryBuilder;
 use Voyager\Graph\Database\Query\Processors\Neo4jProcessor;
 use Laudis\Neo4j\Contracts\ClientInterface;
+use Laudis\Neo4j\Contracts\CypherSequence;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
+use Laudis\Neo4j\Databags\SummarizedResult;
 use Laudis\Neo4j\Types\Node;
 use Laudis\Neo4j\Types\Relationship;
 use Throwable;
@@ -38,30 +41,25 @@ class Neo4jConnection extends Connection
 
     public function select($query, $bindings = [], $useReadPdo = true): array
     {
+        $this->settleOffloaded(false);
+
         return $this->run($query, $bindings, function (string $query, array $bindings): array {
             if ($this->pretending()) {
                 return [];
             }
 
-            [$convertedQuery, $convertedBindings] = $this->getQueryGrammar()->convertParametersToNamed($query, $bindings);
-
-            if (! is_null($this->activeTransaction)) {
-                $result = $this->activeTransaction->run($convertedQuery, $convertedBindings);
-            } else {
-                $result = $this->neo4jClient->writeTransaction(function (TransactionInterface $tx) use ($convertedQuery, $convertedBindings) {
-                    return $tx->run($convertedQuery, $convertedBindings);
-                });
-            }
-
             $processedResults = [];
-            foreach ($result as $record) {
+
+            foreach ($this->execute($query, $bindings) as $record) {
                 $row = [];
 
                 foreach ($record->toArray() as $key => $value) {
                     if ($value instanceof Node) {
-                        $row = array_merge($row, $value->getProperties()->toArray());
+                        $row = array_merge($row, $value->getProperties()->toRecursiveArray());
                     } elseif ($value instanceof Relationship) {
-                        $row[$key] = $value->getProperties()->toArray();
+                        $row[$key] = $value->getProperties()->toRecursiveArray();
+                    } elseif ($value instanceof CypherSequence) {
+                        $row[$key] = $value->toRecursiveArray();
                     } else {
                         $row[$key] = $value;
                     }
@@ -81,8 +79,18 @@ class Neo4jConnection extends Connection
         return array_shift($records);
     }
 
+    /**
+     * Rows one at a time. Bolt hands the whole result over at once, so the rows are the select's.
+     */
+    public function cursor($query, $bindings = [], $useReadPdo = true): Generator
+    {
+        yield from $this->select($query, $bindings, $useReadPdo);
+    }
+
     public function statement($query, $bindings = []): bool
     {
+        $this->settleOffloaded(true);
+
         return $this->run($query, $bindings, function (string $query, array $bindings): bool {
             if ($this->pretending()) {
                 return true;
@@ -100,21 +108,26 @@ class Neo4jConnection extends Connection
         });
     }
 
+    /**
+     * A statement that returns an `affected` column reports its own count; the grammar's
+     * update, delete and upsert return the nodes they touched. Any other statement reports
+     * the summary's counters.
+     */
     public function affectingStatement($query, $bindings = []): int
     {
+        $this->settleOffloaded(true);
+
         return $this->run($query, $bindings, function (string $query, array $bindings): int {
             if ($this->pretending()) {
                 return 0;
             }
 
-            [$convertedQuery, $convertedBindings] = $this->getQueryGrammar()->convertParametersToNamed($query, $bindings);
+            $result = $this->execute($query, $bindings);
 
-            if (! is_null($this->activeTransaction)) {
-                $result = $this->activeTransaction->run($convertedQuery, $convertedBindings);
-            } else {
-                $result = $this->neo4jClient->writeTransaction(function (TransactionInterface $tx) use ($convertedQuery, $convertedBindings) {
-                    return $tx->run($convertedQuery, $convertedBindings);
-                });
+            $first = $result->isEmpty() ? null : $result->first();
+
+            if (! is_null($first) && $first->hasKey('affected')) {
+                return (int) $first->get('affected');
             }
 
             $counters = $result->getSummary()->getCounters();
@@ -125,6 +138,24 @@ class Neo4jConnection extends Connection
                 + $counters->relationshipsDeleted()
                 + $counters->propertiesSet();
         });
+    }
+
+    /**
+     * Run on the open transaction, or in a write transaction of its own.
+     *
+     * @param  array<int|string, mixed>  $bindings
+     */
+    protected function execute(string $query, array $bindings): SummarizedResult
+    {
+        [$convertedQuery, $convertedBindings] = $this->getQueryGrammar()->convertParametersToNamed($query, $bindings);
+
+        if (! is_null($this->activeTransaction)) {
+            return $this->activeTransaction->run($convertedQuery, $convertedBindings);
+        }
+
+        return $this->neo4jClient->writeTransaction(
+            fn (TransactionInterface $tx) => $tx->run($convertedQuery, $convertedBindings)
+        );
     }
 
     public function insert($query, $bindings = []): bool
@@ -166,6 +197,8 @@ class Neo4jConnection extends Connection
 
     public function beginTransaction(): void
     {
+        $this->settleOffloaded(true);
+
         if ($this->transactions === 0 && is_null($this->activeTransaction)) {
             $this->activeTransaction = $this->neo4jClient->beginTransaction();
         }
