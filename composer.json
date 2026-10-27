@@ -9,7 +9,7 @@
         }
     ],
     "require": {
-        "php": "^8.4|^8.5",
+        "php": "~8.4.27||^8.5.12",
         "venusian-voyager/collections": "^0.10.0",
         "venusian-voyager/database": "^0.10.0",
         "venusian-voyager/nuts-and-bolts": "^0.10.0"

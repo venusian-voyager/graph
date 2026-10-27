@@ -3,6 +3,7 @@
 namespace Voyager\Graph;
 
 use Voyager\Database\DatabaseManager;
+use Voyager\Filesystem\Filesystem;
 use Voyager\Graph\Console\GraphModelMakeCommand;
 use Voyager\Graph\Database\Connectors\Neo4jConnector;
 use Voyager\Graph\Database\Neo4jConnection;
@@ -33,6 +34,9 @@ class GraphServiceProvider extends ServiceProvider
                 );
             });
         });
+
+        // The console lists a command only when its class is bound, as ComputerServiceProvider binds its own.
+        $this->app->registerSingleton(GraphModelMakeCommand::class, fn () => new GraphModelMakeCommand(new Filesystem));
 
         $this->commands([
             GraphModelMakeCommand::class,
