@@ -62,7 +62,8 @@ class Neo4jConnector
         $token = $config['token'] ?? null;
 
         if ($token) {
-            return Authenticate::bearer($token);
+            // The client's bearer-scheme login is its OIDC auth; it has no bearer().
+            return Authenticate::oidc($token);
         }
 
         if ($username && $password) {
